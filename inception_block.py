@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[19]:
 
 
 import keras
 from keras.layers.core import Layer, Lambda, Flatten, Dense
 import keras.backend as K
 import tensorflow as tf
-from keras.datasets import cifar10
 from keras.models import Model
-from keras.layers import Conv2D, MaxPool2D,      Dropout, Dense, Input, concatenate,          GlobalAveragePooling2D, AveragePooling2D,    Flatten, ZeroPadding2D
+from keras.layers import Conv2D, MaxPool2D,      Dropout, Dense, Input, concatenate,          GlobalAveragePooling2D, AveragePooling2D,    Flatten, ZeroPadding2D, Activation
 from keras.layers.normalization import BatchNormalization
 
 import cv2
@@ -23,10 +22,10 @@ from keras.optimizers import SGD
 from keras.callbacks import LearningRateScheduler
 
 
-# In[2]:
+# In[35]:
 
 
-def inception_module(filters_1x1,
+def inception_module(X, filters_1x1,
                      filters_3x3_reduce,
                      filters_3x3,
                      filters_5x5_reduce,
@@ -34,41 +33,32 @@ def inception_module(filters_1x1,
                      filters_pool_proj,
                      name=None):
 
-    conv_1x1 = Conv2D(filters_1x1, (1, 1),
-                      padding='same',
-                      activation='relu',
-                      name='inception_1x1')(X)
+    conv_1x1 = Conv2D(filters_1x1, (1, 1), padding='same',
+                      activation='relu')(X)
 
-    conv_3x3 = conv2D(filters_3x3_reduce, (1, 1),
+    conv_3x3 = Conv2D(filters_3x3_reduce, (1, 1),
                       padding="same",
-                      activation='relu',
-                      name='inception_3x3_reduce')(X)
-    conv_3x3 = conv2D(filters_3x3, (1, 1),
-                      padding="same",
-                      activation='relu',
-                      name='inception_3x3')(conv_3x3)
+                      activation='relu')(X)
+    conv_3x3 = Conv2D(filters_3x3, (1, 1), padding="same",
+                      activation='relu')(conv_3x3)
 
-    conv_5x5 = conv2D(filters_5x5_reduce, (1, 1),
+    conv_5x5 = Conv2D(filters_5x5_reduce, (1, 1),
                       padding='same',
-                      activation='relu',
-                      name='inception_5x5_reduce')(X)
-    conv_5x5 = conv2D(filters_5x5, (1, 1),
-                      padding='same',
-                      activation='relu',
-                      name='inception_5x5')(conv_5x5)
+                      activation='relu')(X)
+    conv_5x5 = Conv2D(filters_5x5, (1, 1), padding='same',
+                      activation='relu')(conv_5x5)
 
     pool_proj = MaxPool2D((3, 3), strides=(1, 1), padding='same')(X)
     pool_proj = MaxPool2D(filters_pool_proj,
                           strides=(1, 1),
-                          padding='same',
-                          activation='relu')(pool_proj)
+                          padding='same')(pool_proj)
 
     inception = concatenate([conv_1x1, conv_3x3, conv_5x5, pool_proj], axis=3)
 
     return inception
 
 
-# In[3]:
+# In[45]:
 
 
 def faceRecoModel(input_shape):
@@ -79,7 +69,7 @@ def faceRecoModel(input_shape):
 
     #first block
     X = Conv2D(64, (7, 7), padding='same', strides=(2, 2), name='conv_1')(X)
-    X = BatchNormalization(name='bn_1')(X)
+    X = BatchNormalization()(X)
     X = Activation('relu')(X)
 
     X = ZeroPadding2D((1, 1))(X)
@@ -97,7 +87,7 @@ def faceRecoModel(input_shape):
     X = Activation('relu')(X)
 
     X = ZeroPadding2D((1, 1))(X)
-    X = MaxPooling2D(pool_size=3, strides=2, name='max_pool_2')(X)
+    X = MaxPool2D(pool_size=3, strides=2, name='max_pool_2')(X)
 
     X = inception_module(X,
                          filters_1x1=64,
@@ -184,9 +174,10 @@ def faceRecoModel(input_shape):
                          filters_pool_proj=128,
                          name='inception_5b')
 
-    X = GlobalAveragePooling2D(pool_size=(3, 3),
-                               strides=(1, 1),
-                               name='avg_pool')(X)
+    X = AveragePooling2D((3, 3),
+                         padding='same',
+                         strides=(1, 1),
+                         name='avg_pool')(X)
     X = Dropout(0.4)(X)
     X = Flatten()(X)
     X = Dense(128, name='dense_layer')(X)
@@ -197,6 +188,12 @@ def faceRecoModel(input_shape):
     model = Model(inputs=X_input, outputs=X, name='FaceRecoModel')
 
     return model
+
+
+# In[46]:
+
+
+FRModel = faceRecoModel(input_shape=(3, 96, 96))
 
 
 # In[ ]:
