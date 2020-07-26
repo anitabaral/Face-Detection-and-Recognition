@@ -1,199 +1,273 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[19]:
+# In[1]:
 
 
-import keras
-from keras.layers.core import Layer, Lambda, Flatten, Dense
-import keras.backend as K
-import tensorflow as tf
-from keras.models import Model
-from keras.layers import Conv2D, MaxPool2D,      Dropout, Dense, Input, concatenate,          GlobalAveragePooling2D, AveragePooling2D,    Flatten, ZeroPadding2D, Activation
+from keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
+from keras.layers.core import Lambda, Flatten, Dense
 from keras.layers.normalization import BatchNormalization
-
-import cv2
-import numpy as np
+from keras.layers.pooling import MaxPooling2D, AveragePooling2D
+from keras.models import Model
 from keras import backend as K
-from keras.utils import np_utils
 
-import math
-from keras.optimizers import SGD
-from keras.callbacks import LearningRateScheduler
+import utils
+from utils import LRN2D
 
 
-# In[35]:
+# In[4]:
 
 
-def inception_module(X, filters_1x1,
-                     filters_3x3_reduce,
-                     filters_3x3,
-                     filters_5x5_reduce,
-                     filters_5x5,
-                     filters_pool_proj,
-                     name=None):
+def create_model():
 
-    conv_1x1 = Conv2D(filters_1x1, (1, 1), padding='same',
-                      activation='relu')(X)
+    myInput = Input(shape=(96, 96, 3))
 
-    conv_3x3 = Conv2D(filters_3x3_reduce, (1, 1),
-                      padding="same",
-                      activation='relu')(X)
-    conv_3x3 = Conv2D(filters_3x3, (1, 1), padding="same",
-                      activation='relu')(conv_3x3)
+    x = ZeroPadding2D(padding=(3, 3), input_shape=(96, 96, 3))(myInput)
+    x = Conv2D(64, (7, 7), strides=(2, 2), name='conv1')(x)
+    x = BatchNormalization(axis=3, epsilon=0.00001, name='bn1')(x)
+    x = Activation('relu')(x)
+    x = ZeroPadding2D(padding=(1, 1))(x)
+    x = MaxPooling2D(pool_size=3, strides=2)(x)
+    x = Lambda(LRN2D, name='lrn_1')(x)
+    x = Conv2D(64, (1, 1), name='conv2')(x)
+    x = BatchNormalization(axis=3, epsilon=0.00001, name='bn2')(x)
+    x = Activation('relu')(x)
+    x = ZeroPadding2D(padding=(1, 1))(x)
+    x = Conv2D(192, (3, 3), name='conv3')(x)
+    x = BatchNormalization(axis=3, epsilon=0.00001, name='bn3')(x)
+    x = Activation('relu')(x)
+    x = Lambda(LRN2D, name='lrn_2')(x)
+    x = ZeroPadding2D(padding=(1, 1))(x)
+    x = MaxPooling2D(pool_size=3, strides=2)(x)
 
-    conv_5x5 = Conv2D(filters_5x5_reduce, (1, 1),
-                      padding='same',
-                      activation='relu')(X)
-    conv_5x5 = Conv2D(filters_5x5, (1, 1), padding='same',
-                      activation='relu')(conv_5x5)
+    # Inception3a
+    inception_3a_3x3 = Conv2D(96, (1, 1), name='inception_3a_3x3_conv1')(x)
+    inception_3a_3x3 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3a_3x3_bn1')(inception_3a_3x3)
+    inception_3a_3x3 = Activation('relu')(inception_3a_3x3)
+    inception_3a_3x3 = ZeroPadding2D(padding=(1, 1))(inception_3a_3x3)
+    inception_3a_3x3 = Conv2D(128, (3, 3),
+                              name='inception_3a_3x3_conv2')(inception_3a_3x3)
+    inception_3a_3x3 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3a_3x3_bn2')(inception_3a_3x3)
+    inception_3a_3x3 = Activation('relu')(inception_3a_3x3)
 
-    pool_proj = MaxPool2D((3, 3), strides=(1, 1), padding='same')(X)
-    pool_proj = MaxPool2D(filters_pool_proj,
-                          strides=(1, 1),
-                          padding='same')(pool_proj)
+    inception_3a_5x5 = Conv2D(16, (1, 1), name='inception_3a_5x5_conv1')(x)
+    inception_3a_5x5 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3a_5x5_bn1')(inception_3a_5x5)
+    inception_3a_5x5 = Activation('relu')(inception_3a_5x5)
+    inception_3a_5x5 = ZeroPadding2D(padding=(2, 2))(inception_3a_5x5)
+    inception_3a_5x5 = Conv2D(32, (5, 5),
+                              name='inception_3a_5x5_conv2')(inception_3a_5x5)
+    inception_3a_5x5 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3a_5x5_bn2')(inception_3a_5x5)
+    inception_3a_5x5 = Activation('relu')(inception_3a_5x5)
 
-    inception = concatenate([conv_1x1, conv_3x3, conv_5x5, pool_proj], axis=3)
+    inception_3a_pool = MaxPooling2D(pool_size=3, strides=2)(x)
+    inception_3a_pool = Conv2D(
+        32, (1, 1), name='inception_3a_pool_conv')(inception_3a_pool)
+    inception_3a_pool = BatchNormalization(
+        axis=3, epsilon=0.00001,
+        name='inception_3a_pool_bn')(inception_3a_pool)
+    inception_3a_pool = Activation('relu')(inception_3a_pool)
+    inception_3a_pool = ZeroPadding2D(padding=((3, 4), (3,
+                                                        4)))(inception_3a_pool)
 
-    return inception
+    inception_3a_1x1 = Conv2D(64, (1, 1), name='inception_3a_1x1_conv')(x)
+    inception_3a_1x1 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3a_1x1_bn')(inception_3a_1x1)
+    inception_3a_1x1 = Activation('relu')(inception_3a_1x1)
 
+    inception_3a = concatenate([
+        inception_3a_3x3, inception_3a_5x5, inception_3a_pool, inception_3a_1x1
+    ],
+                               axis=3)
 
-# In[45]:
+    # Inception3b
+    inception_3b_3x3 = Conv2D(96, (1, 1),
+                              name='inception_3b_3x3_conv1')(inception_3a)
+    inception_3b_3x3 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3b_3x3_bn1')(inception_3b_3x3)
+    inception_3b_3x3 = Activation('relu')(inception_3b_3x3)
+    inception_3b_3x3 = ZeroPadding2D(padding=(1, 1))(inception_3b_3x3)
+    inception_3b_3x3 = Conv2D(128, (3, 3),
+                              name='inception_3b_3x3_conv2')(inception_3b_3x3)
+    inception_3b_3x3 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3b_3x3_bn2')(inception_3b_3x3)
+    inception_3b_3x3 = Activation('relu')(inception_3b_3x3)
 
+    inception_3b_5x5 = Conv2D(32, (1, 1),
+                              name='inception_3b_5x5_conv1')(inception_3a)
+    inception_3b_5x5 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3b_5x5_bn1')(inception_3b_5x5)
+    inception_3b_5x5 = Activation('relu')(inception_3b_5x5)
+    inception_3b_5x5 = ZeroPadding2D(padding=(2, 2))(inception_3b_5x5)
+    inception_3b_5x5 = Conv2D(64, (5, 5),
+                              name='inception_3b_5x5_conv2')(inception_3b_5x5)
+    inception_3b_5x5 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3b_5x5_bn2')(inception_3b_5x5)
+    inception_3b_5x5 = Activation('relu')(inception_3b_5x5)
 
-def faceRecoModel(input_shape):
+    inception_3b_pool = AveragePooling2D(pool_size=(3, 3),
+                                         strides=(3, 3))(inception_3a)
+    inception_3b_pool = Conv2D(
+        64, (1, 1), name='inception_3b_pool_conv')(inception_3b_pool)
+    inception_3b_pool = BatchNormalization(
+        axis=3, epsilon=0.00001,
+        name='inception_3b_pool_bn')(inception_3b_pool)
+    inception_3b_pool = Activation('relu')(inception_3b_pool)
+    inception_3b_pool = ZeroPadding2D(padding=(4, 4))(inception_3b_pool)
 
-    X_input = Input(input_shape)
+    inception_3b_1x1 = Conv2D(64, (1, 1),
+                              name='inception_3b_1x1_conv')(inception_3a)
+    inception_3b_1x1 = BatchNormalization(
+        axis=3, epsilon=0.00001, name='inception_3b_1x1_bn')(inception_3b_1x1)
+    inception_3b_1x1 = Activation('relu')(inception_3b_1x1)
 
-    X = ZeroPadding2D((3, 3))(X_input)
+    inception_3b = concatenate([
+        inception_3b_3x3, inception_3b_5x5, inception_3b_pool, inception_3b_1x1
+    ],
+                               axis=3)
 
-    #first block
-    X = Conv2D(64, (7, 7), padding='same', strides=(2, 2), name='conv_1')(X)
-    X = BatchNormalization()(X)
-    X = Activation('relu')(X)
+    # Inception3c
+    inception_3c_3x3 = utils.conv2d_bn(inception_3b,
+                                       layer='inception_3c_3x3',
+                                       cv1_out=128,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=256,
+                                       cv2_filter=(3, 3),
+                                       cv2_strides=(2, 2),
+                                       padding=(1, 1))
 
-    X = ZeroPadding2D((1, 1))(X)
-    X = MaxPool2D((3, 3), padding='same', strides=(2, 2), name='max_pool_1')(X)
+    inception_3c_5x5 = utils.conv2d_bn(inception_3b,
+                                       layer='inception_3c_5x5',
+                                       cv1_out=32,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=64,
+                                       cv2_filter=(5, 5),
+                                       cv2_strides=(2, 2),
+                                       padding=(2, 2))
 
-    #second_block
-    X = Conv2D(64, (1, 1), strides=(1, 1), name='conv_2')(X)
-    X = BatchNormalization(name='bn_2')(X)
-    X = Activation('relu')(X)
+    inception_3c_pool = MaxPooling2D(pool_size=3, strides=2)(inception_3b)
+    inception_3c_pool = ZeroPadding2D(padding=((0, 1), (0,
+                                                        1)))(inception_3c_pool)
 
-    X = ZeroPadding2D((1, 1))(X)
+    inception_3c = concatenate(
+        [inception_3c_3x3, inception_3c_5x5, inception_3c_pool], axis=3)
 
-    X = Conv2D(192, (3, 3), strides=(1, 1), name='conv_3')(X)
-    X = BatchNormalization(name='bn_3')(X)
-    X = Activation('relu')(X)
+    #inception 4a
+    inception_4a_3x3 = utils.conv2d_bn(inception_3c,
+                                       layer='inception_4a_3x3',
+                                       cv1_out=96,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=192,
+                                       cv2_filter=(3, 3),
+                                       cv2_strides=(1, 1),
+                                       padding=(1, 1))
+    inception_4a_5x5 = utils.conv2d_bn(inception_3c,
+                                       layer='inception_4a_5x5',
+                                       cv1_out=32,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=64,
+                                       cv2_filter=(5, 5),
+                                       cv2_strides=(1, 1),
+                                       padding=(2, 2))
 
-    X = ZeroPadding2D((1, 1))(X)
-    X = MaxPool2D(pool_size=3, strides=2, name='max_pool_2')(X)
+    inception_4a_pool = AveragePooling2D(pool_size=(3, 3),
+                                         strides=(3, 3))(inception_3c)
+    inception_4a_pool = utils.conv2d_bn(inception_4a_pool,
+                                        layer='inception_4a_pool',
+                                        cv1_out=128,
+                                        cv1_filter=(1, 1),
+                                        padding=(2, 2))
+    inception_4a_1x1 = utils.conv2d_bn(inception_3c,
+                                       layer='inception_4a_1x1',
+                                       cv1_out=256,
+                                       cv1_filter=(1, 1))
+    inception_4a = concatenate([
+        inception_4a_3x3, inception_4a_5x5, inception_4a_pool, inception_4a_1x1
+    ],
+                               axis=3)
 
-    X = inception_module(X,
-                         filters_1x1=64,
-                         filters_3x3_reduce=96,
-                         filters_3x3=128,
-                         filters_5x5_reduce=16,
-                         filters_5x5=32,
-                         filters_pool_proj=32,
-                         name='inception_3a')
+    #inception4e
+    inception_4e_3x3 = utils.conv2d_bn(inception_4a,
+                                       layer='inception_4e_3x3',
+                                       cv1_out=160,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=256,
+                                       cv2_filter=(3, 3),
+                                       cv2_strides=(2, 2),
+                                       padding=(1, 1))
+    inception_4e_5x5 = utils.conv2d_bn(inception_4a,
+                                       layer='inception_4e_5x5',
+                                       cv1_out=64,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=128,
+                                       cv2_filter=(5, 5),
+                                       cv2_strides=(2, 2),
+                                       padding=(2, 2))
+    inception_4e_pool = MaxPooling2D(pool_size=3, strides=2)(inception_4a)
+    inception_4e_pool = ZeroPadding2D(padding=((0, 1), (0,
+                                                        1)))(inception_4e_pool)
 
-    X = inception_module(X,
-                         filters_1x1=128,
-                         filters_3x3_reduce=128,
-                         filters_3x3=192,
-                         filters_5x5_reduce=32,
-                         filters_5x5=96,
-                         filters_pool_proj=64,
-                         name='inception_3b')
+    inception_4e = concatenate(
+        [inception_4e_3x3, inception_4e_5x5, inception_4e_pool], axis=3)
 
-    X = MaxPool2D((3, 3), padding='same', strides=(2, 2), name='max_pool_3')(X)
+    #inception5a
+    inception_5a_3x3 = utils.conv2d_bn(inception_4e,
+                                       layer='inception_5a_3x3',
+                                       cv1_out=96,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=384,
+                                       cv2_filter=(3, 3),
+                                       cv2_strides=(1, 1),
+                                       padding=(1, 1))
 
-    X = inception_module(X,
-                         filters_1x1=192,
-                         filters_3x3_reduce=96,
-                         filters_3x3=208,
-                         filters_5x5_reduce=16,
-                         filters_5x5=48,
-                         filters_pool_proj=64,
-                         name='inception_4a')
+    inception_5a_pool = AveragePooling2D(pool_size=(3, 3),
+                                         strides=(3, 3))(inception_4e)
+    inception_5a_pool = utils.conv2d_bn(inception_5a_pool,
+                                        layer='inception_5a_pool',
+                                        cv1_out=96,
+                                        cv1_filter=(1, 1),
+                                        padding=(1, 1))
+    inception_5a_1x1 = utils.conv2d_bn(inception_4e,
+                                       layer='inception_5a_1x1',
+                                       cv1_out=256,
+                                       cv1_filter=(1, 1))
 
-    X = inception_module(X,
-                         filters_1x1=160,
-                         filters_3x3_reduce=112,
-                         filters_3x3=224,
-                         filters_5x5_reduce=24,
-                         filters_5x5=64,
-                         filters_pool_proj=64,
-                         name='inception_4b')
+    inception_5a = concatenate(
+        [inception_5a_3x3, inception_5a_pool, inception_5a_1x1], axis=3)
 
-    X = inception_module(X,
-                         filters_1x1=128,
-                         filters_3x3_reduce=128,
-                         filters_3x3=256,
-                         filters_5x5_reduce=24,
-                         filters_5x5=64,
-                         filters_pool_proj=64,
-                         name='inception_4c')
+    #inception_5b
+    inception_5b_3x3 = utils.conv2d_bn(inception_5a,
+                                       layer='inception_5b_3x3',
+                                       cv1_out=96,
+                                       cv1_filter=(1, 1),
+                                       cv2_out=384,
+                                       cv2_filter=(3, 3),
+                                       cv2_strides=(1, 1),
+                                       padding=(1, 1))
+    inception_5b_pool = MaxPooling2D(pool_size=3, strides=2)(inception_5a)
+    inception_5b_pool = utils.conv2d_bn(inception_5b_pool,
+                                        layer='inception_5b_pool',
+                                        cv1_out=96,
+                                        cv1_filter=(1, 1))
+    inception_5b_pool = ZeroPadding2D(padding=(1, 1))(inception_5b_pool)
 
-    X = inception_module(X,
-                         filters_1x1=112,
-                         filters_3x3_reduce=144,
-                         filters_3x3=288,
-                         filters_5x5_reduce=32,
-                         filters_5x5=64,
-                         filters_pool_proj=64,
-                         name='inception_4d')
+    inception_5b_1x1 = utils.conv2d_bn(inception_5a,
+                                       layer='inception_5b_1x1',
+                                       cv1_out=256,
+                                       cv1_filter=(1, 1))
+    inception_5b = concatenate(
+        [inception_5b_3x3, inception_5b_pool, inception_5b_1x1], axis=3)
 
-    X = inception_module(X,
-                         filters_1x1=256,
-                         filters_3x3_reduce=160,
-                         filters_3x3=320,
-                         filters_5x5_reduce=32,
-                         filters_5x5=128,
-                         filters_pool_proj=128,
-                         name='inception_4e')
+    av_pool = AveragePooling2D(pool_size=(3, 3), strides=(1, 1))(inception_5b)
+    reshape_layer = Flatten()(av_pool)
+    dense_layer = Dense(128, name='dense_layer')(reshape_layer)
+    norm_layer = Lambda(lambda x: K.l2_normalize(x, axis=1),
+                        name='norm_layer')(dense_layer)
 
-    X = MaxPool2D((3, 3), padding='same', strides=(2, 2), name='max_pool_4')(X)
-
-    X = inception_module(X,
-                         filters_1x1=256,
-                         filters_3x3_reduce=160,
-                         filters_3x3=320,
-                         filters_5x5_reduce=32,
-                         filters_5x5=128,
-                         filters_pool_proj=128,
-                         name='inception_5a')
-
-    X = inception_module(X,
-                         filters_1x1=384,
-                         filters_3x3_reduce=192,
-                         filters_3x3=384,
-                         filters_5x5_reduce=48,
-                         filters_5x5=128,
-                         filters_pool_proj=128,
-                         name='inception_5b')
-
-    X = AveragePooling2D((3, 3),
-                         padding='same',
-                         strides=(1, 1),
-                         name='avg_pool')(X)
-    X = Dropout(0.4)(X)
-    X = Flatten()(X)
-    X = Dense(128, name='dense_layer')(X)
-
-    X = Lambda(lambda x: K.l2_normalize(x, axis=1))(X)
-
-    # Create model instance
-    model = Model(inputs=X_input, outputs=X, name='FaceRecoModel')
-
-    return model
-
-
-# In[46]:
-
-
-FRModel = faceRecoModel(input_shape=(3, 96, 96))
+    return Model(inputs=[myInput], outputs=norm_layer)
 
 
 # In[ ]:
