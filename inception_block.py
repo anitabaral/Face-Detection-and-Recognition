@@ -4,18 +4,16 @@
 # In[1]:
 
 
-from keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate
-from keras.layers.core import Lambda, Flatten, Dense
-from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import MaxPooling2D, AveragePooling2D
-from keras.models import Model
-from keras import backend as K
+from tensorflow.keras.layers import Conv2D, ZeroPadding2D, Activation, Input, concatenate, AveragePooling2D, MaxPooling2D, BatchNormalization
+from tensorflow.keras.layers import Lambda, Flatten, Dense
+from tensorflow.keras.models import Model
+from tensorflow.keras import backend as K
 
 import utils
 from utils import LRN2D
 
 
-# In[4]:
+# In[2]:
 
 
 def create_model():
@@ -268,6 +266,12 @@ def create_model():
                         name='norm_layer')(dense_layer)
 
     return Model(inputs=[myInput], outputs=norm_layer)
+
+
+# In[3]:
+
+
+create_model()
 
 
 # In[ ]:
