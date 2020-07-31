@@ -9,8 +9,7 @@ import numpy as np
 import os
 
 from numpy import genfromtxt
-from keras.layers import Conv2D, ZeroPadding2D, Activation
-from keras.layers.normalization import BatchNormalization
+from tensorflow.keras.layers import Conv2D, ZeroPadding2D, Activation, BatchNormalization
 
 _FLOATX = 'float32'
 
